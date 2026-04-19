@@ -98,10 +98,7 @@ ${stripped}
   if (HEAD_OPEN_RE.test(normalized)) {
     withBaseline = normalized.replace(HEAD_OPEN_RE, (match) => `${match}${BASELINE_STYLE}`);
   } else if (HTML_RE.test(normalized)) {
-    withBaseline = normalized.replace(
-      HTML_RE,
-      (match) => `${match}<head>${BASELINE_STYLE}</head>`,
-    );
+    withBaseline = normalized.replace(HTML_RE, (match) => `${match}<head>${BASELINE_STYLE}</head>`);
   } else {
     withBaseline = `<html><head>${BASELINE_STYLE}</head>${normalized}</html>`;
   }

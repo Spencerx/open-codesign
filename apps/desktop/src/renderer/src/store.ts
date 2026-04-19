@@ -665,7 +665,6 @@ async function runGenerate(
   advanceStageIfCurrent(get, set, generationId, 'parsing');
   advanceStageIfCurrent(get, set, generationId, 'rendering');
   applyGenerateSuccess(
-    get,
     set,
     get,
     generationId,

@@ -579,11 +579,7 @@ function parseTestEndpointPayload(raw: unknown): TestEndpointPayload {
   const wire = r['wire'];
   const baseUrl = r['baseUrl'];
   const apiKey = r['apiKey'];
-  if (
-    wire !== 'openai-chat' &&
-    wire !== 'openai-responses' &&
-    wire !== 'anthropic'
-  ) {
+  if (wire !== 'openai-chat' && wire !== 'openai-responses' && wire !== 'anthropic') {
     throw new CodesignError(`Unsupported wire: ${String(wire)}`, 'IPC_BAD_INPUT');
   }
   if (typeof baseUrl !== 'string' || baseUrl.trim().length === 0) {

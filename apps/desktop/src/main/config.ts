@@ -2,7 +2,12 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { dirname, join } from 'node:path';
 import * as TOML from '@iarna/toml';
-import { CodesignError, type Config, parseConfigFlexible, toPersistedV3 } from '@open-codesign/shared';
+import {
+  CodesignError,
+  type Config,
+  parseConfigFlexible,
+  toPersistedV3,
+} from '@open-codesign/shared';
 
 const XDG_DEFAULT = join(homedir(), '.config', 'open-codesign');
 
@@ -50,9 +55,7 @@ export async function readConfig(): Promise<Config | null> {
 
 function safeParseConfig(
   parsed: unknown,
-):
-  | { ok: true; data: Config }
-  | { ok: false; error: string; cause: unknown } {
+): { ok: true; data: Config } | { ok: false; error: string; cause: unknown } {
   try {
     return { ok: true, data: parseConfigFlexible(parsed) };
   } catch (err) {

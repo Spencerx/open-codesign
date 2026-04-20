@@ -84,9 +84,7 @@ export function toProviderRows(
 
     const label =
       entry?.name ??
-      (isSupportedOnboardingProvider(provider)
-        ? PROVIDER_SHORTLIST[provider].label
-        : provider);
+      (isSupportedOnboardingProvider(provider) ? PROVIDER_SHORTLIST[provider].label : provider);
 
     rows.push({
       provider,
@@ -113,10 +111,7 @@ export interface DeleteProviderResult {
  * Pure helper: given the current config and the provider to remove, computes
  * what the next active provider and model values should be.
  */
-export function computeDeleteProviderResult(
-  cfg: Config,
-  toDelete: string,
-): DeleteProviderResult {
+export function computeDeleteProviderResult(cfg: Config, toDelete: string): DeleteProviderResult {
   const remaining = Object.keys(cfg.secrets).filter((p) => p !== toDelete);
 
   if (remaining.length === 0) {

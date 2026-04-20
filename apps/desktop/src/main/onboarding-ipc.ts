@@ -8,8 +8,8 @@ import {
   StoredDesignSystem,
   type StoredDesignSystem as StoredDesignSystemValue,
   type SupportedOnboardingProvider,
-  WireApiSchema,
   type WireApi,
+  WireApiSchema,
   detectWireFromBaseUrl,
   hydrateConfig,
   isSupportedOnboardingProvider,
@@ -150,10 +150,7 @@ function parseSaveKey(raw: unknown): SaveKeyInput {
   const modelPrimary = r['modelPrimary'];
   const baseUrl = r['baseUrl'];
   if (typeof provider !== 'string' || provider.trim().length === 0) {
-    throw new CodesignError(
-      `Provider "${String(provider)}" is invalid.`,
-      'IPC_BAD_INPUT',
-    );
+    throw new CodesignError(`Provider "${String(provider)}" is invalid.`, 'IPC_BAD_INPUT');
   }
   if (typeof apiKey !== 'string' || apiKey.trim().length === 0) {
     throw new CodesignError('apiKey must be a non-empty string', 'IPC_BAD_INPUT');
@@ -240,8 +237,7 @@ async function runSetProviderAndModels(input: SetProviderAndModelsInput): Promis
   const nextProviders: Record<string, ProviderEntry> = { ...(cachedConfig?.providers ?? {}) };
   const existing = nextProviders[input.provider];
   const builtin = BUILTIN_PROVIDERS[input.provider as SupportedOnboardingProvider];
-  const seed: ProviderEntry =
-    existing ??
+  const seed: ProviderEntry = existing ??
     builtin ?? {
       id: input.provider,
       name: input.provider,
@@ -260,15 +256,21 @@ async function runSetProviderAndModels(input: SetProviderAndModelsInput): Promis
     [input.provider]: { ciphertext },
   };
   const activate = input.setAsActive || cachedConfig === null;
-  const nextActiveProvider = activate ? input.provider : (cachedConfig?.activeProvider ?? input.provider);
-  const nextActiveModel = activate ? input.modelPrimary : (cachedConfig?.activeModel ?? input.modelPrimary);
+  const nextActiveProvider = activate
+    ? input.provider
+    : (cachedConfig?.activeProvider ?? input.provider);
+  const nextActiveModel = activate
+    ? input.modelPrimary
+    : (cachedConfig?.activeModel ?? input.modelPrimary);
   const next: Config = hydrateConfig({
     version: 3,
     activeProvider: nextActiveProvider,
     activeModel: nextActiveModel,
     secrets: nextSecrets,
     providers: nextProviders,
-    ...(cachedConfig?.designSystem !== undefined ? { designSystem: cachedConfig.designSystem } : {}),
+    ...(cachedConfig?.designSystem !== undefined
+      ? { designSystem: cachedConfig.designSystem }
+      : {}),
   });
   await writeConfig(next);
   cachedConfig = next;
@@ -494,10 +496,14 @@ async function runAddCustomProvider(input: AddCustomProviderInput): Promise<Onbo
   const next = hydrateConfig({
     version: 3,
     activeProvider: shouldActivate ? entry.id : (cachedConfig?.activeProvider ?? entry.id),
-    activeModel: shouldActivate ? input.defaultModel : (cachedConfig?.activeModel ?? input.defaultModel),
+    activeModel: shouldActivate
+      ? input.defaultModel
+      : (cachedConfig?.activeModel ?? input.defaultModel),
     secrets: nextSecrets,
     providers: nextProviders,
-    ...(cachedConfig?.designSystem !== undefined ? { designSystem: cachedConfig.designSystem } : {}),
+    ...(cachedConfig?.designSystem !== undefined
+      ? { designSystem: cachedConfig.designSystem }
+      : {}),
   });
   await writeConfig(next);
   cachedConfig = next;
@@ -528,14 +534,22 @@ function parseUpdateProviderPayload(raw: unknown): UpdateProviderInput {
   if (typeof r['name'] === 'string') out.name = r['name'] as string;
   if (typeof r['baseUrl'] === 'string') out.baseUrl = r['baseUrl'] as string;
   if (typeof r['defaultModel'] === 'string') out.defaultModel = r['defaultModel'] as string;
-  if (r['httpHeaders'] !== undefined && typeof r['httpHeaders'] === 'object' && r['httpHeaders'] !== null) {
+  if (
+    r['httpHeaders'] !== undefined &&
+    typeof r['httpHeaders'] === 'object' &&
+    r['httpHeaders'] !== null
+  ) {
     const map: Record<string, string> = {};
     for (const [k, v] of Object.entries(r['httpHeaders'] as Record<string, unknown>)) {
       if (typeof v === 'string') map[k] = v;
     }
     out.httpHeaders = map;
   }
-  if (r['queryParams'] !== undefined && typeof r['queryParams'] === 'object' && r['queryParams'] !== null) {
+  if (
+    r['queryParams'] !== undefined &&
+    typeof r['queryParams'] === 'object' &&
+    r['queryParams'] !== null
+  ) {
     const map: Record<string, string> = {};
     for (const [k, v] of Object.entries(r['queryParams'] as Record<string, unknown>)) {
       if (typeof v === 'string') map[k] = v;
@@ -615,15 +629,16 @@ async function runImportCodex(imported: CodexImport): Promise<OnboardingState> {
     imported.activeProvider !== null && nextProviders[imported.activeProvider] !== undefined
       ? imported.activeProvider
       : fallbackActive.id;
-  const activeModel =
-    imported.activeModel ?? nextProviders[activeProvider]?.defaultModel ?? '';
+  const activeModel = imported.activeModel ?? nextProviders[activeProvider]?.defaultModel ?? '';
   const next = hydrateConfig({
     version: 3,
     activeProvider,
     activeModel,
     secrets: nextSecrets,
     providers: nextProviders,
-    ...(cachedConfig?.designSystem !== undefined ? { designSystem: cachedConfig.designSystem } : {}),
+    ...(cachedConfig?.designSystem !== undefined
+      ? { designSystem: cachedConfig.designSystem }
+      : {}),
   });
   await writeConfig(next);
   cachedConfig = next;
@@ -652,7 +667,9 @@ async function runImportClaudeCode(imported: ClaudeCodeImport): Promise<Onboardi
     activeModel: imported.activeModel ?? imported.provider.defaultModel,
     secrets: nextSecrets,
     providers: nextProviders,
-    ...(cachedConfig?.designSystem !== undefined ? { designSystem: cachedConfig.designSystem } : {}),
+    ...(cachedConfig?.designSystem !== undefined
+      ? { designSystem: cachedConfig.designSystem }
+      : {}),
   });
   await writeConfig(next);
   cachedConfig = next;
@@ -702,7 +719,10 @@ async function runListEndpointModels(raw: unknown): Promise<ListEndpointModelsRe
     const data = body['data'] ?? body['models'];
     if (!Array.isArray(data)) return { ok: false, error: 'unexpected response shape' };
     const ids = data
-      .filter((it) => typeof it === 'object' && it !== null && typeof (it as { id?: unknown }).id === 'string')
+      .filter(
+        (it) =>
+          typeof it === 'object' && it !== null && typeof (it as { id?: unknown }).id === 'string',
+      )
       .map((it) => (it as { id: string }).id);
     return { ok: true, models: ids };
   } catch (err) {
@@ -740,12 +760,9 @@ export function registerOnboardingIpc(): void {
 
   // ── v3 custom provider IPC surface ────────────────────────────────────────
 
-  ipcMain.handle(
-    'config:v1:add-provider',
-    async (_e, raw: unknown): Promise<OnboardingState> => {
-      return runAddCustomProvider(parseAddProviderPayload(raw));
-    },
-  );
+  ipcMain.handle('config:v1:add-provider', async (_e, raw: unknown): Promise<OnboardingState> => {
+    return runAddCustomProvider(parseAddProviderPayload(raw));
+  });
 
   ipcMain.handle(
     'config:v1:update-provider',
@@ -772,16 +789,19 @@ export function registerOnboardingIpc(): void {
     },
   );
 
-  ipcMain.handle('config:v1:detect-external-configs', async (): Promise<ExternalConfigsDetection> => {
-    const [codex, claudeCode] = await Promise.all([
-      readCodexConfig().catch(() => null),
-      readClaudeCodeSettings().catch(() => null),
-    ]);
-    const out: ExternalConfigsDetection = {};
-    if (codex !== null && codex.providers.length > 0) out.codex = codex;
-    if (claudeCode !== null && claudeCode.provider !== null) out.claudeCode = claudeCode;
-    return out;
-  });
+  ipcMain.handle(
+    'config:v1:detect-external-configs',
+    async (): Promise<ExternalConfigsDetection> => {
+      const [codex, claudeCode] = await Promise.all([
+        readCodexConfig().catch(() => null),
+        readClaudeCodeSettings().catch(() => null),
+      ]);
+      const out: ExternalConfigsDetection = {};
+      if (codex !== null && codex.providers.length > 0) out.codex = codex;
+      if (claudeCode !== null && claudeCode.provider !== null) out.claudeCode = claudeCode;
+      return out;
+    },
+  );
 
   ipcMain.handle('config:v1:import-codex-config', async (): Promise<OnboardingState> => {
     const imported = await readCodexConfig();

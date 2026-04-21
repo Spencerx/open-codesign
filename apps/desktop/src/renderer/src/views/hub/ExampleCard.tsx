@@ -105,28 +105,20 @@ export function ExampleCard({ example, onUsePrompt }: ExampleCardProps) {
           color: skin.ink,
         }}
       >
-        {/* SVG thumbnail — fades in on hover so the default card stays clean
-            and editorial, but hovering reveals the concrete layout preview. */}
+        {/* SVG thumbnail — always visible; subtle scale-in on hover for life. */}
         <div
           aria-hidden
-          className="absolute inset-0 opacity-0 transition-opacity duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:opacity-100"
+          className="absolute inset-0 transition-transform duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:scale-[1.03]"
           // biome-ignore lint/security/noDangerouslySetInnerHtml: thumbnails are static bundled strings authored in-repo, not user content
           dangerouslySetInnerHTML={{ __html: example.thumbnail }}
         />
-        {/* Gradient scrim under the title so text stays legible over the SVG */}
+        {/* Gradient scrim under the title so text stays legible over busy thumbs */}
         <div
           aria-hidden
-          className="absolute inset-x-0 bottom-0 h-[62%] opacity-0 transition-opacity duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:opacity-95"
+          className="absolute inset-x-0 bottom-0 h-[62%]"
           style={{
             background: `linear-gradient(180deg, transparent 0%, ${skin.to} 92%)`,
           }}
-        />
-        {/* Large watermark glyph — visible on the resting state, fades out on hover */}
-        <Icon
-          aria-hidden
-          strokeWidth={1}
-          className="absolute -right-2 -bottom-4 w-[140px] h-[140px] opacity-[0.07] transition-opacity duration-[var(--duration-base)] ease-[var(--ease-out)] group-hover:opacity-0"
-          style={{ color: skin.ink }}
         />
         {/* Accent dot */}
         <span
@@ -136,9 +128,15 @@ export function ExampleCard({ example, onUsePrompt }: ExampleCardProps) {
         />
         {/* Category eyebrow */}
         <span
-          className="absolute top-[var(--space-4)] left-[calc(var(--space-4)_+_16px)] text-[10px] uppercase tracking-[0.18em]"
-          style={{ color: skin.ink, opacity: 0.55 }}
+          className="absolute top-[var(--space-4)] left-[calc(var(--space-4)_+_16px)] text-[10px] uppercase tracking-[0.18em] inline-flex items-center gap-[6px]"
+          style={{ color: skin.ink, opacity: 0.7 }}
         >
+          <Icon
+            aria-hidden
+            strokeWidth={1.5}
+            className="w-[11px] h-[11px]"
+            style={{ color: skin.ink }}
+          />
           {t(`examples.categories.${example.category}`)}
         </span>
         {/* Title treatment */}

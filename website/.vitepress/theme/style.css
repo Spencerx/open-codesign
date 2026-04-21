@@ -225,6 +225,8 @@ body {
 }
 .codesign-comparison table {
   width: 100%;
+  display: table;
+  table-layout: fixed;
   border-collapse: collapse;
   background: var(--color-surface);
   border: 1px solid var(--color-border-muted);

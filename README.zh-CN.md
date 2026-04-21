@@ -138,9 +138,16 @@ Open CoDesign 可以把一句自然语言提示词，直接变成一个完成度
 一旦对应的 tap、manifest 或 secret 准备好，CI 会自动为 release 打开对应 PR。详细说明见各个 `packaging/*/README.md`。
 </details>
 
-> **v0.1 提示：** 当前安装包还没有签名。macOS 可以右键 → 打开，或者安装后执行 `xattr -d com.apple.quarantine /Applications/open-codesign.app`。Windows 可以在 SmartScreen 中点击 “More info” → “Run anyway”。
+> **v0.1 提示：** 当前安装包未签名。**macOS Sequoia 15+** 起，右键 → 打开 已不能绕过 Gatekeeper，即使在「系统设置 → 隐私与安全性」里点"仍要打开"也经常失败。最可靠的一行命令：
 >
-> 如果你更在意可验证构建，也可以自己从源码编译，见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
+> ```sh
+> xattr -cr "/Applications/Open CoDesign.app"
+> ```
+>
+> 跑完直接双击打开即可。（0.1.x 旧版本装完后路径是 `/Applications/open-codesign.app`。）
+> **Windows**：SmartScreen → More info → Run anyway。
+>
+> 想要可验证构建可以自己从源码编译，见 [CONTRIBUTING.md](./CONTRIBUTING.md)。
 
 ### 2. 添加 API Key
 

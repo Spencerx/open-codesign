@@ -138,7 +138,14 @@ Each release ships with `SHA256SUMS.txt` and a CycloneDX SBOM (`*-sbom.cdx.json`
 Each release-time PR is auto-opened by CI once the corresponding tap, manifest, or secret is provisioned. See each `packaging/*/README.md` for setup.
 </details>
 
-> **v0.1 note:** installers are unsigned. macOS: right-click → Open, or run `xattr -d com.apple.quarantine /Applications/open-codesign.app` after install. Windows: SmartScreen → More info → Run anyway.
+> **v0.1 note:** installers are unsigned. On **macOS Sequoia 15+** right-click → Open no longer bypasses Gatekeeper, and "Open Anyway" in System Settings often fails. Reliable one-liner:
+>
+> ```sh
+> xattr -cr "/Applications/Open CoDesign.app"
+> ```
+>
+> Then double-click normally. (Older 0.1.x builds are installed as `/Applications/open-codesign.app`.)
+> On **Windows**: SmartScreen → More info → Run anyway.
 >
 > Want a verified build? Compile from source — see [CONTRIBUTING.md](./CONTRIBUTING.md).
 

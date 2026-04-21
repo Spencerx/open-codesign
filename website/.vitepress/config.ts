@@ -1,16 +1,18 @@
 import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vitepress';
+import rootPkg from '../../package.json' with { type: 'json' };
 
 const SITE_ORIGIN = 'https://opencoworkai.github.io';
 const SITE_BASE = '/open-codesign/';
 const SITE_URL = `${SITE_ORIGIN}${SITE_BASE}`;
 const OG_IMAGE = `${SITE_URL}og.svg`;
+const SOFTWARE_VERSION = (rootPkg as { version: string }).version;
 
 export default defineConfig({
   title: 'Open CoDesign',
   titleTemplate: ':title — Open CoDesign',
   description:
-    'Open-source desktop AI design tool — the self-hosted alternative to Claude Design. Multi-model BYOK (Anthropic, OpenAI, Gemini, DeepSeek, Ollama), local-first, Apache-2.0.',
+    'Open-source desktop AI design tool — the self-hosted alternative to Claude Design. Multi-model BYOK (Anthropic, OpenAI, Gemini, DeepSeek, Ollama), local-first, MIT.',
   lang: 'en-US',
 
   base: SITE_BASE,
@@ -33,7 +35,7 @@ export default defineConfig({
       {
         property: 'og:description',
         content:
-          'Open-source desktop AI design tool. A self-hosted alternative to Claude Design. Prompt to prototype, slide deck, or marketing asset. Multi-model BYOK, local-first, Apache-2.0.',
+          'Open-source desktop AI design tool. A self-hosted alternative to Claude Design. Prompt to prototype, slide deck, or marketing asset. Multi-model BYOK, local-first, MIT.',
       },
     ],
     ['meta', { property: 'og:image', content: OG_IMAGE }],
@@ -49,7 +51,7 @@ export default defineConfig({
       {
         name: 'twitter:description',
         content:
-          'Open-source desktop AI design tool. BYOK, local-first, Apache-2.0. Runs on your laptop.',
+          'Open-source desktop AI design tool. BYOK, local-first, MIT. Runs on your laptop.',
       },
     ],
     ['meta', { name: 'twitter:image', content: OG_IMAGE }],
@@ -81,7 +83,7 @@ export default defineConfig({
         url: SITE_URL,
         applicationCategory: 'DesignApplication',
         operatingSystem: 'macOS, Windows, Linux',
-        softwareVersion: '0.1.1',
+        softwareVersion: SOFTWARE_VERSION,
         releaseNotes: `${SITE_URL}#whats-working-today`,
         downloadUrl: 'https://github.com/OpenCoworkAI/open-codesign/releases',
         offers: {
@@ -90,7 +92,7 @@ export default defineConfig({
           priceCurrency: 'USD',
           description: 'Free and open source. Bring your own API key (token cost only).',
         },
-        license: 'https://www.apache.org/licenses/LICENSE-2.0',
+        license: 'https://opensource.org/licenses/MIT',
         codeRepository: 'https://github.com/OpenCoworkAI/open-codesign',
         author: {
           '@type': 'Organization',
@@ -122,7 +124,7 @@ export default defineConfig({
             name: 'Is Open CoDesign free?',
             acceptedAnswer: {
               '@type': 'Answer',
-              text: 'Yes. Open CoDesign is Apache-2.0 licensed and free to download and use. You bring your own API key for any supported model provider and pay only the token cost to that provider. There is no subscription, no cloud account, and no per-token surcharge from us.',
+              text: 'Yes. Open CoDesign is MIT licensed and free to download and use. You bring your own API key for any supported model provider and pay only the token cost to that provider. There is no subscription, no cloud account, and no per-token surcharge from us.',
             },
           },
           {
@@ -198,7 +200,6 @@ export default defineConfig({
         text: 'Changelog',
         link: 'https://github.com/OpenCoworkAI/open-codesign/blob/main/CHANGELOG.md',
       },
-      { text: 'GitHub', link: 'https://github.com/OpenCoworkAI/open-codesign' },
     ],
 
     sidebar: [
@@ -225,12 +226,11 @@ export default defineConfig({
 
     socialLinks: [
       { icon: 'github', link: 'https://github.com/OpenCoworkAI/open-codesign' },
-      { icon: 'twitter', link: 'https://twitter.com/OpenCoworkAI' },
     ],
 
     footer: {
       message:
-        'Released under the <a href="https://www.apache.org/licenses/LICENSE-2.0">Apache-2.0 License</a>. · <a href="https://github.com/OpenCoworkAI/open-codesign/blob/main/CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/OpenCoworkAI/open-codesign/issues">Issues</a>',
+        'Released under the <a href="https://opensource.org/licenses/MIT">MIT License</a>. · <a href="https://github.com/OpenCoworkAI/open-codesign/blob/main/CONTRIBUTING.md">Contribute</a> · <a href="https://github.com/OpenCoworkAI/open-codesign/issues">Issues</a>',
       copyright: '© 2026-present OpenCoworkAI',
     },
   },
@@ -245,7 +245,7 @@ export default defineConfig({
       lang: 'zh-CN',
       title: 'Open CoDesign',
       description:
-        '开源桌面 AI 设计工具——Claude Design 的自托管替代方案。自带 API Key（Anthropic、OpenAI、Gemini、DeepSeek、Ollama），100% 本地运行，Apache-2.0。',
+        '开源桌面 AI 设计工具——Claude Design 的自托管替代方案。自带 API Key（Anthropic、OpenAI、Gemini、DeepSeek、Ollama），100% 本地运行，MIT。',
       themeConfig: {
         nav: [
           { text: '首页', link: '/zh/' },
@@ -264,7 +264,7 @@ export default defineConfig({
           },
         ],
         footer: {
-          message: '基于 Apache-2.0 协议开源。',
+          message: '基于 MIT 协议开源。',
           copyright: '© 2026-present OpenCoworkAI',
         },
       },

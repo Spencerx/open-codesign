@@ -136,8 +136,9 @@ const secondaryAssets = () => {
     </details>
 
     <p class="install-hint">
-      macOS 安装提示：<strong>务必先拖到「应用程序」文件夹再启动</strong>——
-      直接从 DMG 双击运行会让系统钥匙串不可用。首次启动右键 → 打开（避开 Gatekeeper 拦截）。
+      <strong>macOS 安装</strong>：拖到「应用程序」。双击打开若被 Gatekeeper 拦截（常见于 Sequoia 15+），终端跑一次：<br/>
+      <code>xattr -cr "/Applications/Open CoDesign.app"</code><br/>
+      然后再双击就能打开。下载历史版本（文件名仍是 <code>open-codesign.app</code>）请把路径对应替换。
     </p>
   </div>
 </template>
@@ -254,9 +255,19 @@ const secondaryAssets = () => {
   border-left: 3px solid var(--vp-c-brand-1, #c96442);
   background: rgba(201, 100, 66, 0.05);
   font-size: 0.82rem;
-  line-height: 1.5;
+  line-height: 1.6;
   color: var(--vp-c-text-2, #6b6b6b);
   border-radius: 0 6px 6px 0;
+}
+.install-hint code {
+  display: inline-block;
+  padding: 0.1rem 0.4rem;
+  margin: 0.2rem 0;
+  background: rgba(0, 0, 0, 0.06);
+  border-radius: 4px;
+  font-size: 0.78rem;
+  font-family: var(--vp-font-family-mono);
+  color: var(--vp-c-text-1, #1a1a1a);
 }
 .install-hint strong {
   color: var(--vp-c-text-1, #1a1a1a);

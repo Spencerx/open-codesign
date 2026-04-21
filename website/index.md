@@ -65,10 +65,6 @@ features:
 import { withBase } from 'vitepress'
 </script>
 
-<div class="codesign-hero-shot">
-  <img :src="withBase('/screenshots/product-hero.png')" alt="Open CoDesign — prompt on the left, live artifact on the right" />
-</div>
-
 <SmartDownload />
 
 <div class="codesign-section">

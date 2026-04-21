@@ -1,5 +1,5 @@
 appId: ai.opencowork.codesign
-productName: open-codesign
+productName: Open CoDesign
 # Declare the publish target explicitly so electron-builder's updater-info
 # machinery (channels, provider, latest.yml) has something non-null to hang
 # on — otherwise NSIS packaging crashes with "Cannot read properties of null
@@ -22,7 +22,7 @@ mac:
   hardenedRuntime: true
   gatekeeperAssess: false
   notarize: false
-  artifactName: ${productName}-${version}-${arch}.${ext}
+  artifactName: open-codesign-${version}-${arch}.${ext}
   target:
     - target: dmg
       arch: [arm64, x64]
@@ -48,7 +48,7 @@ dmg:
       path: /Applications
 win:
   icon: resources/icon.ico
-  artifactName: ${productName}-${version}-${arch}-setup.${ext}
+  artifactName: open-codesign-${version}-${arch}-setup.${ext}
   target:
     - target: nsis
       arch: [x64, arm64]
@@ -62,7 +62,7 @@ linux:
   # rpm → x86_64). SmartDownload.vue + Homebrew cask + Flatpak manifest all
   # reference `-x64.ext`; picking a fixed literal keeps them in sync. We
   # only ship one Linux arch, so this is safe until we add arm64.
-  artifactName: ${productName}-${version}-x64.${ext}
+  artifactName: open-codesign-${version}-x64.${ext}
   target:
     - target: AppImage
       arch: [x64]

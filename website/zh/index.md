@@ -65,10 +65,6 @@ features:
 import { withBase } from 'vitepress'
 </script>
 
-<div class="codesign-hero-shot">
-  <img :src="withBase('/screenshots/product-hero.png')" alt="Open CoDesign — 左侧 chat，右侧 artifact 实时渲染" />
-</div>
-
 <SmartDownload />
 
 <div class="codesign-section">

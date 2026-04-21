@@ -107,6 +107,16 @@ export const SelectedElement = z.object({
 });
 export type SelectedElement = z.infer<typeof SelectedElement>;
 
+// Correlates renderer/main/core log lines for a single generation. Constrained
+// to alphanumerics + `_`/`-` so it cannot carry LF/CR into a log line (defense
+// in depth — log formatting also escapes, but belt-and-braces for payloads
+// that become `runId` fields via AsyncLocalStorage).
+const GenerationId = z
+  .string()
+  .min(1)
+  .max(128)
+  .regex(/^[A-Za-z0-9_-]+$/, 'generationId must be alphanumeric, _ or -');
+
 export const GeneratePayload = z.object({
   prompt: z.string().min(1).max(32_000),
   history: z.array(ChatMessage).max(200),
@@ -114,7 +124,7 @@ export const GeneratePayload = z.object({
   baseUrl: z.string().url().optional(),
   referenceUrl: z.string().url().optional(),
   attachments: z.array(LocalInputFile).max(12).default([]),
-  generationId: z.string().optional(),
+  generationId: GenerationId.optional(),
 });
 export type GeneratePayload = z.infer<typeof GeneratePayload>;
 
@@ -129,7 +139,7 @@ export const GeneratePayloadV1 = z.object({
   baseUrl: z.string().url().optional(),
   referenceUrl: z.string().url().optional(),
   attachments: z.array(LocalInputFile).max(12).default([]),
-  generationId: z.string().min(1),
+  generationId: GenerationId,
   /** Optional so older clients / tests that don't set it still parse.
    *  Present in the renderer path so agent stream events can route to
    *  the right design's chat bubble. */
@@ -153,7 +163,7 @@ export type ApplyCommentPayload = z.infer<typeof ApplyCommentPayload>;
 
 export const CancelGenerationPayloadV1 = z.object({
   schemaVersion: z.literal(1),
-  generationId: z.string().min(1),
+  generationId: GenerationId,
 });
 export type CancelGenerationPayloadV1 = z.infer<typeof CancelGenerationPayloadV1>;
 

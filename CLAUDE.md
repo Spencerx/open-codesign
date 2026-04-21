@@ -86,6 +86,7 @@ examples/            # Reproductions of Claude Design public demos
 - ❌ Adding tracking, analytics, or auto-update without explicit opt-in UX
 - ❌ Hard-coding any path; respect XDG base dirs / Electron `app.getPath()`
 - ❌ Synchronous I/O in the main process
+- ❌ `console.*` in `apps/desktop/src/main/**`, `packages/core/**`, `packages/providers/**`, `packages/exporters/**`, `packages/shared/**` — use `getLogger()` (main) or the injected `CoreLogger` (core/providers/exporters). Biome enforces this.
 
 ## Useful commands
 

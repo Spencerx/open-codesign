@@ -1,5 +1,5 @@
 cask "open-codesign" do
-  version "0.1.0"
+  version "0.1.1"
 
   on_arm do
     url "https://github.com/OpenCoworkAI/open-codesign/releases/download/v#{version}/open-codesign-#{version}-arm64.dmg"

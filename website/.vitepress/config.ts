@@ -7,10 +7,10 @@ const SITE_URL = `${SITE_ORIGIN}${SITE_BASE}`;
 const OG_IMAGE = `${SITE_URL}og.svg`;
 
 export default defineConfig({
-  title: 'Open CoDesign',
-  titleTemplate: ':title — Open CoDesign',
+  title: 'Open CoDesign — Open-Source Claude Design Alternative',
+  titleTemplate: ':title — Open CoDesign (Open-Source Claude Design Alternative)',
   description:
-    'Open-source desktop AI design tool — the Claude Design alternative you can self-host. Multi-model BYOK (Anthropic, OpenAI, Gemini, Ollama), local-first, Apache-2.0.',
+    'Open CoDesign is the open-source Claude Design alternative — a self-hosted desktop AI design tool. Bring your own API key (Anthropic, OpenAI, Gemini, DeepSeek, Ollama). Everything runs locally. Apache-2.0.',
   lang: 'en-US',
 
   base: SITE_BASE,
@@ -27,13 +27,13 @@ export default defineConfig({
     // Open Graph
     ['meta', { property: 'og:type', content: 'website' }],
     ['meta', { property: 'og:site_name', content: 'Open CoDesign' }],
-    ['meta', { property: 'og:title', content: 'Open CoDesign — Open-Source AI Design Tool' }],
+    ['meta', { property: 'og:title', content: 'Open CoDesign — The Open-Source Claude Design Alternative' }],
     [
       'meta',
       {
         property: 'og:description',
         content:
-          'The open-source alternative to Claude Design. Prompt to prototype, slide deck, or marketing asset. Multi-model BYOK, local-first, Apache-2.0.',
+          'The open-source Claude Design alternative. Self-hosted desktop AI design app. Prompt to prototype, slide deck, or marketing asset. Multi-model BYOK, local-first, Apache-2.0.',
       },
     ],
     ['meta', { property: 'og:image', content: OG_IMAGE }],

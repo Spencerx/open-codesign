@@ -17,12 +17,13 @@ LOCAL_DIR="${2:-}"
 REPO="OpenCoworkAI/open-codesign"
 REL_URL_BASE="https://github.com/${REPO}/releases/download/v${VERSION}"
 
-# electron-builder's default artifact names for the three Windows targets
-# and two macOS architectures. Keep these in sync with electron-builder.yml.
+# electron-builder's default artifact names. The NSIS target with
+# `arch: [x64, arm64]` emits ONE multi-arch installer (not per-arch),
+# so we only hash a single Windows file. GitHub Releases collapses
+# whitespace in the name to dots.
 MAC_ARM64_DMG="open-codesign-${VERSION}-arm64.dmg"
 MAC_X64_DMG="open-codesign-${VERSION}.dmg"
-WIN_X64_EXE="open-codesign-${VERSION}-x64-setup.exe"
-WIN_ARM64_EXE="open-codesign-${VERSION}-arm64-setup.exe"
+WIN_EXE="open-codesign.Setup.${VERSION}.exe"
 
 tmpdir=$(mktemp -d)
 trap 'rm -rf "$tmpdir"' EXIT
@@ -51,12 +52,10 @@ echo ""
 echo "Computing SHA256s…"
 mac_arm_sha=$(fetch_sha "$MAC_ARM64_DMG")
 mac_x64_sha=$(fetch_sha "$MAC_X64_DMG")
-win_x64_sha=$(fetch_sha "$WIN_X64_EXE")
-win_arm_sha=$(fetch_sha "$WIN_ARM64_EXE")
-echo "  mac arm64  : $mac_arm_sha"
-echo "  mac x64    : $mac_x64_sha"
-echo "  win x64    : $win_x64_sha"
-echo "  win arm64  : $win_arm_sha"
+win_sha=$(fetch_sha "$WIN_EXE")
+echo "  mac arm64 : $mac_arm_sha"
+echo "  mac x64   : $mac_x64_sha"
+echo "  win multi : $win_sha"
 echo ""
 
 echo "Homebrew cask…"
@@ -76,19 +75,16 @@ else
     perl -pi -e "s/PackageVersion: [0-9.]+/PackageVersion: ${VERSION}/" "$f"
   done
   installer="$winget_dir/OpenCoworkAI.open-codesign.installer.yaml"
-  update_placeholder "$installer" "REPLACE_WITH_X64_SHA256"   "$win_x64_sha"
-  update_placeholder "$installer" "REPLACE_WITH_ARM64_SHA256" "$win_arm_sha"
-  # Keep InstallerUrl in sync with VERSION too.
-  perl -pi -e "s/v[0-9.]+\/open-codesign-[0-9.]+-/v${VERSION}\/open-codesign-${VERSION}-/g" "$installer"
+  update_placeholder "$installer" "REPLACE_WITH_WIN_SHA256" "$win_sha"
+  # Keep InstallerUrl in sync with VERSION.
+  perl -pi -e "s/v[0-9.]+\/open-codesign\.Setup\.[0-9.]+\.exe/v${VERSION}\/open-codesign.Setup.${VERSION}.exe/g" "$installer"
 fi
 
 echo "scoop manifest…"
 scoop="packaging/scoop/bucket/open-codesign.json"
-# Replace top-level "version": "...".
 perl -pi -e "s/\"version\": \"[0-9.]+\"/\"version\": \"${VERSION}\"/" "$scoop"
-perl -pi -e "s/v[0-9.]+\/open-codesign-[0-9.]+-/v${VERSION}\/open-codesign-${VERSION}-/g" "$scoop"
-update_placeholder "$scoop" "REPLACE_WITH_X64_SHA256"   "$win_x64_sha"
-update_placeholder "$scoop" "REPLACE_WITH_ARM64_SHA256" "$win_arm_sha"
+perl -pi -e "s/v[0-9.]+\/open-codesign\.Setup\.[0-9.]+\.exe/v${VERSION}\/open-codesign.Setup.${VERSION}.exe/g" "$scoop"
+update_placeholder "$scoop" "REPLACE_WITH_WIN_SHA256" "$win_sha"
 
 echo ""
 echo "Done. Review with git diff packaging/, then commit + mirror to the"

@@ -1914,7 +1914,22 @@ export const useCodesignStore = create<CodesignState>((set, get) => ({
   pushToast(toast) {
     const id = newId();
     const next: Toast = { id, ...toast };
-    set((s) => ({ toasts: [...s.toasts, next] }));
+    set((s) => {
+      let toasts = s.toasts;
+      // Error toasts are sticky (AUTO_DISMISS_MS.error is null) so they can
+      // pile up and cover the preview during a retry storm. Keep them sticky
+      // but cap visible errors at 3 by dropping the oldest on overflow.
+      if (toast.variant === 'error') {
+        const errors = toasts.filter((t) => t.variant === 'error');
+        if (errors.length >= 3) {
+          const oldestId = errors[0]?.id;
+          if (oldestId !== undefined) {
+            toasts = toasts.filter((t) => t.id !== oldestId);
+          }
+        }
+      }
+      return { toasts: [...toasts, next] };
+    });
     return id;
   },
 

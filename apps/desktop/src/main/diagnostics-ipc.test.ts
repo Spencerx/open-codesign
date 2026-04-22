@@ -106,8 +106,22 @@ describe('diagnostics:v1:recordRendererError', () => {
       code: 'X',
       scope: 'y',
       message: 'z',
-    }) as { schemaVersion: 1; eventId: number | null };
-    expect(result).toEqual({ schemaVersion: 1, eventId: null });
+    }) as { schemaVersion: 1; eventId: number | null; fingerprint: string | null };
+    expect(result).toEqual({ schemaVersion: 1, eventId: null, fingerprint: null });
+  });
+
+  it('echoes back the main-recomputed fingerprint', () => {
+    const db = initInMemoryDb();
+    registerDiagnosticsIpc(db);
+    const result = invoke('diagnostics:v1:recordRendererError', {
+      schemaVersion: 1,
+      code: 'FP_ECHO',
+      scope: 'toast',
+      message: 'hello',
+      stack: 'Error\n    at foo (a.ts:1:1)',
+    }) as { eventId: number | null; fingerprint: string | null };
+    expect(typeof result.fingerprint).toBe('string');
+    expect(result.fingerprint).toMatch(/^[0-9a-f]{8}$/);
   });
 
   it('dedups fingerprint within 200ms and returns the existing id', () => {

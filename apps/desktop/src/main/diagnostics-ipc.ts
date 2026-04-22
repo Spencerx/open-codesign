@@ -22,6 +22,7 @@ import {
   type DiagnosticEventInput,
   type ListEventsInput,
   type ListEventsResult,
+  type RecordRendererErrorResult,
   type ReportEventInput,
   type ReportEventResult,
   type ReportableError,
@@ -774,10 +775,10 @@ export function registerDiagnosticsIpc(db: Database | null): void {
 
   ipcMain.handle(
     'diagnostics:v1:recordRendererError',
-    (_e: unknown, raw: unknown): { schemaVersion: 1; eventId: number | null } => {
+    (_e: unknown, raw: unknown): RecordRendererErrorResult => {
       const input = parseRecordRendererErrorInput(raw);
       if (db === null) {
-        return { schemaVersion: 1, eventId: null };
+        return { schemaVersion: 1, eventId: null, fingerprint: null };
       }
       const fingerprint = computeFingerprint({
         errorCode: input.code,
@@ -796,7 +797,7 @@ export function registerDiagnosticsIpc(db: Database | null): void {
       };
       if (input.context !== undefined) recordInput.context = input.context;
       const eventId = recordDiagnosticEvent(db, recordInput);
-      return { schemaVersion: 1, eventId };
+      return { schemaVersion: 1, eventId, fingerprint };
     },
   );
 

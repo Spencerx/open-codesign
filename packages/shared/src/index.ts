@@ -479,6 +479,22 @@ export interface ReportEventResult {
   summaryMarkdown: string;
 }
 
+/**
+ * Result of `diagnostics:v1:recordRendererError`.
+ *
+ * `fingerprint` is the main-recomputed fingerprint stored on the DB row (or
+ * the in-flight fingerprint when db is unavailable). Renderer patches both
+ * `persistedEventId` and `persistedFingerprint` onto the in-memory
+ * ReportableError record after the fire-and-forget settles, so Report's
+ * dedup lookup uses the canonical main-side value instead of the
+ * client-side estimate.
+ */
+export interface RecordRendererErrorResult {
+  schemaVersion: 1;
+  eventId: number | null;
+  fingerprint: string | null;
+}
+
 export {
   ensureEditmodeMarkers,
   parseEditmodeBlock,

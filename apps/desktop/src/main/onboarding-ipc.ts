@@ -816,7 +816,17 @@ async function detectChatgptSubscription(): Promise<boolean> {
     const parsed: unknown = JSON.parse(raw);
     if (typeof parsed !== 'object' || parsed === null) return false;
     return (parsed as Record<string, unknown>)['auth_mode'] === 'chatgpt';
-  } catch {
+  } catch (err) {
+    // ENOENT is the "no Codex installed" case; every other error (EACCES,
+    // corrupt JSON, etc.) drives the wrong error-message branch for the
+    // caller, so log it instead of swallowing silently.
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code !== 'ENOENT') {
+      logger.warn('detect_chatgpt_subscription.failed', {
+        code: code ?? 'unknown',
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
     return false;
   }
 }
@@ -1151,11 +1161,26 @@ export function registerOnboardingIpc(): void {
   ipcMain.handle(
     'config:v1:detect-external-configs',
     async (): Promise<ExternalConfigsDetection> => {
+      // Log non-ENOENT failures so an unreadable config (EACCES, EISDIR,
+      // corrupted file) leaves a diagnostic trail instead of silently
+      // degrading into "no config found". The file-not-present case
+      // (ENOENT) is the common one and stays noiseless.
+      const logDetectFailure = (source: string) => (err: unknown) => {
+        const code = (err as NodeJS.ErrnoException).code;
+        if (code !== 'ENOENT') {
+          logger.warn('detect_external_configs.read_failed', {
+            source,
+            code: code ?? 'unknown',
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+        return null;
+      };
       const [codex, claudeCode, gemini, opencode] = await Promise.all([
-        readCodexConfig().catch(() => null),
-        readClaudeCodeSettings().catch(() => null),
-        readGeminiCliConfig().catch(() => null),
-        readOpencodeConfig().catch(() => null),
+        readCodexConfig().catch(logDetectFailure('codex')),
+        readClaudeCodeSettings().catch(logDetectFailure('claude-code')),
+        readGeminiCliConfig().catch(logDetectFailure('gemini')),
+        readOpencodeConfig().catch(logDetectFailure('opencode')),
       ]);
       const providerIds = Object.keys(cachedConfig?.providers ?? {});
       const alreadyHasCodex = providerIds.some((id) => id.startsWith('codex-'));

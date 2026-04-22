@@ -1,9 +1,8 @@
 import { getCurrentLocale, useT } from '@open-codesign/i18n';
-import type { DiagnosticEventRow } from '@open-codesign/shared';
+import type { DiagnosticEventRow, ReportableError } from '@open-codesign/shared';
 import { AlertCircle, Download, FolderOpen } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useCodesignStore } from '../../store';
-import { ReportEventDialog } from '../diagnostics/ReportEventDialog';
 
 type DiagnosticsApi = NonNullable<NonNullable<Window['codesign']>['diagnostics']>;
 
@@ -60,16 +59,39 @@ export function formatRelativeTime(ts: number, now: number = Date.now(), locale 
   return rtf.format(Math.round(delta / 86_400_000), 'day');
 }
 
+/**
+ * Map a persisted DiagnosticEventRow into the in-memory ReportableError shape
+ * so the Report dialog can open a DB row with the same code path it uses for
+ * live toasts. Sans a `localId` the dialog can't index its store entry, so we
+ * mint one deterministically from the row id.
+ */
+export function rowToReportable(row: DiagnosticEventRow): ReportableError {
+  const out: ReportableError = {
+    localId: `db-${row.id}`,
+    code: row.code,
+    scope: row.scope,
+    message: row.message,
+    fingerprint: row.fingerprint,
+    ts: row.ts,
+    persistedEventId: row.id,
+    persistedFingerprint: row.fingerprint,
+  };
+  if (row.stack !== undefined) out.stack = row.stack;
+  if (row.runId !== undefined) out.runId = row.runId;
+  if (row.context !== undefined) out.context = row.context;
+  return out;
+}
+
 export function DiagnosticsPanel() {
   const t = useT();
   const locale = getCurrentLocale();
   const refreshDiagnosticEvents = useCodesignStore((s) => s.refreshDiagnosticEvents);
   const markDiagnosticsRead = useCodesignStore((s) => s.markDiagnosticsRead);
+  const openReportDialog = useCodesignStore((s) => s.openReportDialog);
   const [events, setEvents] = useState<DiagnosticEventRow[]>([]);
   const [dbAvailable, setDbAvailable] = useState(true);
   const [includeTransient, setIncludeTransient] = useState(false);
   const [exporting, setExporting] = useState(false);
-  const [reportEventId, setReportEventId] = useState<number | null>(null);
 
   // Mount: refresh store (badge/unread) and mark panel as read.
   // biome-ignore lint/correctness/useExhaustiveDependencies: mount-only effect
@@ -104,8 +126,15 @@ export function DiagnosticsPanel() {
     }
   }
 
-  function onReport(eventId: number) {
-    setReportEventId(eventId);
+  function onReport(row: DiagnosticEventRow) {
+    const reportable = rowToReportable(row);
+    // Register the row in the in-memory store so the dialog can read it back
+    // through the same lookup path toasts use.
+    useCodesignStore.setState((s) => {
+      if (s.reportableErrors.some((r) => r.localId === reportable.localId)) return s;
+      return { reportableErrors: [...s.reportableErrors, reportable] };
+    });
+    openReportDialog(reportable.localId);
   }
 
   return (
@@ -189,7 +218,7 @@ export function DiagnosticsPanel() {
                 <td className="py-2">
                   <button
                     type="button"
-                    onClick={() => onReport(event.id)}
+                    onClick={() => onReport(event)}
                     className="inline-flex items-center h-7 px-2 rounded-[var(--radius-sm)] border border-[var(--color-border)] text-[var(--text-xs)] text-[var(--color-text-secondary)] hover:bg-[var(--color-surface-hover)] transition-colors"
                   >
                     {t('settings.diagnostics.report')}
@@ -200,7 +229,6 @@ export function DiagnosticsPanel() {
           </tbody>
         </table>
       )}
-      <ReportEventDialog eventId={reportEventId} onClose={() => setReportEventId(null)} />
     </div>
   );
 }

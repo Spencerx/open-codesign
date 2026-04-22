@@ -27,6 +27,7 @@ import type { BrowserWindow as ElectronBrowserWindow } from 'electron';
 import { autoUpdater } from 'electron-updater';
 import type { AgentStreamEvent } from '../preload/index';
 import { registerAppMenu } from './app-menu';
+import { writeBootErrorSync } from './boot-fallback';
 import { registerChatMessagesIpc, registerChatMessagesUnavailableIpc } from './chat-messages-ipc';
 import { runCodexGenerate } from './codex-generate';
 import { registerCodexOAuthIpc } from './codex-oauth-ipc';
@@ -36,7 +37,7 @@ import { registerConnectionIpc } from './connection-ipc';
 import { scanDesignSystem } from './design-system';
 import { registerDiagnosticsIpc } from './diagnostics-ipc';
 import { makeRuntimeVerifier } from './done-verify';
-import { BrowserWindow, app, dialog, ipcMain, shell } from './electron-runtime';
+import { BrowserWindow, app, clipboard, dialog, ipcMain, shell } from './electron-runtime';
 import { registerExporterIpc } from './exporter-ipc';
 import { armGenerationTimeout, cancelGenerationRequest } from './generation-ipc';
 import { maybeAbortIfRunningFromDmg } from './install-check';
@@ -996,63 +997,96 @@ async function scheduleStartupUpdateCheck(): Promise<void> {
 }
 
 void app.whenReady().then(async () => {
-  initLogger();
-  // Show a blocking dialog if the user launched from the DMG mount. If
-  // they accept the remedy, we quit here before touching safeStorage / the
-  // snapshots DB so nothing half-initialises against a bad install.
-  const aborted = await maybeAbortIfRunningFromDmg();
-  if (aborted) return;
-  await loadConfigOnBoot();
-  // Snapshot persistence is best-effort at boot — a failure here (corrupt DB,
-  // permission denied, missing native binding) must NOT block the BrowserWindow
-  // from opening. Surface it via an error dialog and skip registering the
-  // snapshots IPC channels; the rest of the app stays usable.
-  const dbResult = safeInitSnapshotsDb(join(app.getPath('userData'), 'designs.db'));
-  const diagnosticsDb: Database | null = dbResult.ok ? dbResult.db : null;
-  if (dbResult.ok) {
-    registerSnapshotsIpc(dbResult.db);
-    registerChatMessagesIpc(dbResult.db);
-    registerCommentsIpc(dbResult.db);
-    try {
-      pruneDiagnosticEvents(dbResult.db, 500);
-    } catch (err) {
-      getLogger('main:boot').warn('diagnosticEvents.prune.fail', {
-        message: err instanceof Error ? err.message : String(err),
+  try {
+    initLogger();
+    // Show a blocking dialog if the user launched from the DMG mount. If
+    // they accept the remedy, we quit here before touching safeStorage / the
+    // snapshots DB so nothing half-initialises against a bad install.
+    const aborted = await maybeAbortIfRunningFromDmg();
+    if (aborted) return;
+    await loadConfigOnBoot();
+    // Snapshot persistence is best-effort at boot — a failure here (corrupt DB,
+    // permission denied, missing native binding) must NOT block the BrowserWindow
+    // from opening. Surface it via an error dialog and skip registering the
+    // snapshots IPC channels; the rest of the app stays usable.
+    const dbResult = safeInitSnapshotsDb(join(app.getPath('userData'), 'designs.db'));
+    const diagnosticsDb: Database | null = dbResult.ok ? dbResult.db : null;
+    if (dbResult.ok) {
+      registerSnapshotsIpc(dbResult.db);
+      registerChatMessagesIpc(dbResult.db);
+      registerCommentsIpc(dbResult.db);
+      try {
+        pruneDiagnosticEvents(dbResult.db, 500);
+      } catch (err) {
+        getLogger('main:boot').warn('diagnosticEvents.prune.fail', {
+          message: err instanceof Error ? err.message : String(err),
+        });
+      }
+    } else {
+      const bootLog = getLogger('main:boot');
+      bootLog.error('snapshotsDb.init.fail', {
+        message: dbResult.error.message,
+        stack: dbResult.error.stack,
       });
+      // Install stub handlers so renderer-side calls reject with a typed
+      // SNAPSHOTS_UNAVAILABLE CodesignError instead of Electron's opaque
+      // "No handler registered" rejection — see snapshots-ipc.ts.
+      registerSnapshotsUnavailableIpc(dbResult.error.message);
+      registerChatMessagesUnavailableIpc(dbResult.error.message);
+      registerCommentsUnavailableIpc(dbResult.error.message);
+      dialog.showErrorBox(
+        'Design history unavailable',
+        `Could not open the local snapshots database. Version history will be disabled for this session.\n\n${dbResult.error.message}`,
+      );
     }
-  } else {
-    const bootLog = getLogger('main:boot');
-    bootLog.error('snapshotsDb.init.fail', {
-      message: dbResult.error.message,
-      stack: dbResult.error.stack,
-    });
-    // Install stub handlers so renderer-side calls reject with a typed
-    // SNAPSHOTS_UNAVAILABLE CodesignError instead of Electron's opaque
-    // "No handler registered" rejection — see snapshots-ipc.ts.
-    registerSnapshotsUnavailableIpc(dbResult.error.message);
-    registerChatMessagesUnavailableIpc(dbResult.error.message);
-    registerCommentsUnavailableIpc(dbResult.error.message);
-    dialog.showErrorBox(
-      'Design history unavailable',
-      `Could not open the local snapshots database. Version history will be disabled for this session.\n\n${dbResult.error.message}`,
-    );
-  }
-  registerIpcHandlers(diagnosticsDb);
-  registerLocaleIpc();
-  registerConnectionIpc();
-  registerOnboardingIpc();
-  registerCodexOAuthIpc();
-  registerPreferencesIpc();
-  registerExporterIpc(() => mainWindow);
-  registerDiagnosticsIpc(diagnosticsDb);
-  setupAutoUpdater();
-  registerAppMenu();
-  createWindow();
-  void scheduleStartupUpdateCheck();
+    registerIpcHandlers(diagnosticsDb);
+    registerLocaleIpc();
+    registerConnectionIpc();
+    registerOnboardingIpc();
+    registerCodexOAuthIpc();
+    registerPreferencesIpc();
+    registerExporterIpc(() => mainWindow);
+    registerDiagnosticsIpc(diagnosticsDb);
+    setupAutoUpdater();
+    registerAppMenu();
+    createWindow();
+    void scheduleStartupUpdateCheck();
 
-  app.on('activate', () => {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow();
-  });
+    app.on('activate', () => {
+      if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    });
+  } catch (err) {
+    // Last-resort boot-phase handler. Reached when something before
+    // `initLogger()` finishes (or during the first few setup calls)
+    // throws — our electron-log sink might not exist yet, so write a
+    // best-effort sync log and show a native three-button dialog.
+    let logsDir: string;
+    try {
+      logsDir = app.getPath('logs');
+    } catch {
+      logsDir = app.getPath('temp');
+    }
+    const bootLogPath = writeBootErrorSync({
+      error: err,
+      logsDir,
+      appVersion: app.getVersion(),
+      platform: process.platform,
+      electronVersion: process.versions.electron ?? 'unknown',
+      nodeVersion: process.versions.node,
+    });
+    const choice = dialog.showMessageBoxSync({
+      type: 'error',
+      title: 'Open CoDesign failed to start',
+      message: 'A startup error prevented the app from loading.',
+      detail: `Error: ${err instanceof Error ? err.message : String(err)}\n\nDiagnostic log: ${bootLogPath}`,
+      buttons: ['Copy diagnostic path', 'Open log folder', 'Quit'],
+      defaultId: 2,
+      cancelId: 2,
+    });
+    if (choice === 0) clipboard.writeText(bootLogPath);
+    if (choice === 1) shell.showItemInFolder(bootLogPath);
+    app.quit();
+  }
 });
 
 app.on('window-all-closed', () => {

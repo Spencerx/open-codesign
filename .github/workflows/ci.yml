@@ -57,6 +57,16 @@ jobs:
     name: Linux packaging smoke
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Override the workflow-level concurrency: smoke takes ~13 min and the
+    # workflow-level `cancel-in-progress: true` kills it whenever another
+    # PR merges to main in that window, which on this repo happens every
+    # 10-20 min. Per-SHA group means every commit gets an independent
+    # smoke run that always completes (or fails loudly), so the signal we
+    # actually care about — "does the rpm target still work?" — stops
+    # getting silently dropped.
+    concurrency:
+      group: packaging-smoke-${{ github.sha }}
+      cancel-in-progress: false
     steps:
       - uses: actions/checkout@v4
 

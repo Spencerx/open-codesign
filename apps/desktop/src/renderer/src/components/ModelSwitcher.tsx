@@ -2,6 +2,7 @@ import { useT } from '@open-codesign/i18n';
 import { ChevronDown, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { ProviderRow } from '../../../preload/index';
+import { recordAction } from '../lib/action-timeline';
 import { useCodesignStore } from '../store';
 
 interface ModelSwitcherProps {
@@ -78,6 +79,7 @@ export function ModelSwitcher({ variant }: ModelSwitcherProps) {
         provider,
         modelPrimary: model,
       });
+      recordAction({ type: 'provider.switch', data: { provider, modelId: model } });
       setConfig(next);
     } catch (err) {
       pushToast({

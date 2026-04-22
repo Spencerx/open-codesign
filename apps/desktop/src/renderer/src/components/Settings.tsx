@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import type { AppPaths, Preferences, ProviderRow, StorageKind } from '../../../preload/index';
+import { recordAction } from '../lib/action-timeline';
 import { useCodesignStore } from '../store';
 import { AddCustomProviderModal } from './AddCustomProviderModal';
 import { ChatgptLoginCard } from './ChatgptLoginCard';
@@ -284,6 +285,7 @@ function ProviderCard({
     }
     try {
       const res = await window.codesign.connection.testProvider(row.provider);
+      recordAction({ type: 'connection.test', data: { provider: row.provider, ok: res.ok } });
       if (res.ok) {
         pushToast({ variant: 'success', title: t('settings.providers.toast.connectionOk') });
       } else {
@@ -412,6 +414,7 @@ function ActiveModelSelector({
         provider,
         modelPrimary: next,
       });
+      recordAction({ type: 'provider.switch', data: { provider, modelId: next } });
       setConfig(updated);
       return true;
     } catch (err) {
@@ -1016,6 +1019,10 @@ function ModelsTab() {
       const next = await window.codesign.settings.setActiveProvider({
         provider,
         modelPrimary: defaultModel,
+      });
+      recordAction({
+        type: 'provider.switch',
+        data: { provider, modelId: defaultModel },
       });
       setConfig(next);
       const updatedRows = await window.codesign.settings.listProviders();

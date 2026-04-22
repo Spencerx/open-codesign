@@ -17,6 +17,7 @@ import type {
 import { create } from 'zustand';
 import type { StoreApi } from 'zustand';
 import type { CodesignApi, ExportFormat } from '../../preload/index';
+import { recordAction } from './lib/action-timeline';
 import { rendererLogger } from './lib/renderer-logger';
 
 declare global {
@@ -1087,6 +1088,7 @@ export const useCodesignStore = create<CodesignState>((set, get) => ({
   },
 
   completeOnboarding(next: OnboardingState) {
+    recordAction({ type: 'onboarding.complete' });
     set({ config: next });
   },
 
@@ -1148,6 +1150,13 @@ export const useCodesignStore = create<CodesignState>((set, get) => ({
   },
 
   async sendPrompt(input) {
+    recordAction({
+      type: 'prompt.submit',
+      data: {
+        promptLen: input.prompt.length,
+        hasAttachments: (input.attachments?.length ?? 0) > 0,
+      },
+    });
     if (get().isGenerating) return;
     if (!window.codesign) {
       const msg = tr('errors.rendererDisconnected');
@@ -1301,6 +1310,7 @@ export const useCodesignStore = create<CodesignState>((set, get) => ({
   },
 
   cancelGeneration() {
+    recordAction({ type: 'prompt.cancel' });
     const id = get().activeGenerationId;
     if (!id) return;
     if (!window.codesign) {
@@ -1445,6 +1455,7 @@ export const useCodesignStore = create<CodesignState>((set, get) => ({
   },
 
   async exportActive(format: ExportFormat) {
+    recordAction({ type: 'design.export', data: { format } });
     const html = get().previewHtml;
     if (!html) {
       set({ toastMessage: tr('notifications.noDesignToExport') });

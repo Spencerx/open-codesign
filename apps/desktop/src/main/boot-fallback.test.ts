@@ -68,18 +68,14 @@ describe('showBootDialog', () => {
     const driver = { showMessageBoxSync: vi.fn(() => 0) };
     const stderrWrite = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
     try {
-      const result = showBootDialog(
-        { isReady: () => false },
-        driver,
-        {
-          type: 'error',
-          message: 'boom',
-          detail: '/tmp/x.log',
-          buttons: ['Quit'],
-          defaultId: 0,
-          cancelId: 0,
-        },
-      );
+      const result = showBootDialog({ isReady: () => false }, driver, {
+        type: 'error',
+        message: 'boom',
+        detail: '/tmp/x.log',
+        buttons: ['Quit'],
+        defaultId: 0,
+        cancelId: 0,
+      });
       expect(driver.showMessageBoxSync).not.toHaveBeenCalled();
       expect(result).toBe(0);
       expect(stderrWrite).toHaveBeenCalled();
@@ -90,17 +86,13 @@ describe('showBootDialog', () => {
 
   it('calls the driver when app.isReady() is true and returns its choice', () => {
     const driver = { showMessageBoxSync: vi.fn(() => 2) };
-    const result = showBootDialog(
-      { isReady: () => true },
-      driver,
-      {
-        type: 'error',
-        message: 'boom',
-        buttons: ['A', 'B', 'C'],
-        defaultId: 2,
-        cancelId: 2,
-      },
-    );
+    const result = showBootDialog({ isReady: () => true }, driver, {
+      type: 'error',
+      message: 'boom',
+      buttons: ['A', 'B', 'C'],
+      defaultId: 2,
+      cancelId: 2,
+    });
     expect(driver.showMessageBoxSync).toHaveBeenCalledTimes(1);
     expect(result).toBe(2);
   });
@@ -109,11 +101,10 @@ describe('showBootDialog', () => {
     const driver = { showMessageBoxSync: vi.fn(() => 9) };
     const stderrWrite = vi.spyOn(process.stderr, 'write').mockReturnValue(true);
     try {
-      const result = showBootDialog(
-        { isReady: () => false },
-        driver,
-        { type: 'error', message: 'm' },
-      );
+      const result = showBootDialog({ isReady: () => false }, driver, {
+        type: 'error',
+        message: 'm',
+      });
       expect(result).toBe(0);
     } finally {
       stderrWrite.mockRestore();

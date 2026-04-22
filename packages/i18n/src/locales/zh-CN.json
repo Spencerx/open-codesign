@@ -343,6 +343,7 @@
       "exportBundle": "导出诊断包",
       "showTransient": "显示重试后成功的错误",
       "empty": "暂无诊断事件。",
+      "dbUnavailable": "诊断存储不可用。错误仍会写入 main.log，但需要重启应用后才会在此显示。请检查磁盘空间和权限。",
       "report": "上报",
       "column": {
         "time": "时间",

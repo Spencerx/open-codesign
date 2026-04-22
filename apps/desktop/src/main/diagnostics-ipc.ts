@@ -383,13 +383,13 @@ export function registerDiagnosticsIpc(db: Database | null): void {
   ipcMain.handle('diagnostics:v1:listEvents', (_e: unknown, raw: unknown): ListEventsResult => {
     const input = parseListEventsInput(raw);
     if (db === null) {
-      return { schemaVersion: 1, events: [] };
+      return { schemaVersion: 1, events: [], dbAvailable: false };
     }
     const opts: { limit?: number; includeTransient?: boolean } = {};
     if (input.limit !== undefined) opts.limit = input.limit;
     if (input.includeTransient !== undefined) opts.includeTransient = input.includeTransient;
     const events = listDiagnosticEvents(db, opts);
-    return { schemaVersion: 1, events };
+    return { schemaVersion: 1, events, dbAvailable: true };
   });
 
   ipcMain.handle(

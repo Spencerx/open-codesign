@@ -340,6 +340,7 @@
       "exportBundle": "Export diagnostic bundle",
       "showTransient": "Show retried-then-succeeded errors",
       "empty": "No diagnostic events recorded yet.",
+      "dbUnavailable": "Diagnostic storage unavailable. Errors are still logged to main.log but won't appear here until the app restarts. Check disk space and permissions.",
       "report": "Report",
       "column": {
         "time": "Time",

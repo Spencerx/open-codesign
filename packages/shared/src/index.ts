@@ -402,6 +402,12 @@ export interface ListEventsInput {
 export interface ListEventsResult {
   schemaVersion: 1;
   events: DiagnosticEventRow[];
+  /**
+   * False when `safeInitSnapshotsDb` failed at boot and the main process has no
+   * diagnostics DB. Lets the panel distinguish "no events yet" from "errors are
+   * being dropped on the floor" — see FIX-9.
+   */
+  dbAvailable: boolean;
 }
 
 export interface ReportEventInput {

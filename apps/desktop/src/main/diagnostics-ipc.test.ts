@@ -156,9 +156,10 @@ describe('diagnostics:v1:listEvents', () => {
       schemaVersion: 1,
       limit: 10,
       includeTransient: true,
-    }) as { schemaVersion: 1; events: Array<{ code: string }> };
+    }) as { schemaVersion: 1; events: Array<{ code: string }>; dbAvailable: boolean };
 
     expect(result.schemaVersion).toBe(1);
+    expect(result.dbAvailable).toBe(true);
     expect(result.events).toHaveLength(2);
     const codes = result.events.map((e) => e.code).sort();
     expect(codes).toEqual(['X_CODE', 'Y_CODE']);
@@ -171,13 +172,14 @@ describe('diagnostics:v1:listEvents', () => {
     expect(() => invoke('diagnostics:v1:listEvents', { limit: 10 })).toThrowError(/schemaVersion/);
   });
 
-  it('returns empty list when db is null', () => {
+  it('returns empty list with dbAvailable=false when db is null', () => {
     registerDiagnosticsIpc(null);
     const result = invoke('diagnostics:v1:listEvents', { schemaVersion: 1 }) as {
       schemaVersion: 1;
       events: unknown[];
+      dbAvailable: boolean;
     };
-    expect(result).toEqual({ schemaVersion: 1, events: [] });
+    expect(result).toEqual({ schemaVersion: 1, events: [], dbAvailable: false });
   });
 });
 

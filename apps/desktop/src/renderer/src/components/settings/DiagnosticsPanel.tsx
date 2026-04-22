@@ -10,10 +10,14 @@ type DiagnosticsApi = NonNullable<NonNullable<Window['codesign']>['diagnostics']
 export async function loadDiagnosticEvents(
   api: DiagnosticsApi | undefined,
   includeTransient: boolean,
-): Promise<DiagnosticEventRow[]> {
-  if (!api?.listEvents) return [];
+): Promise<{ events: DiagnosticEventRow[]; dbAvailable: boolean }> {
+  if (!api?.listEvents) return { events: [], dbAvailable: true };
   const result = await api.listEvents({ schemaVersion: 1, limit: 100, includeTransient });
-  return result.events;
+  // `dbAvailable` is optional on the wire for backwards compat with older main
+  // processes that pre-date FIX-9; default to true (optimistic) when missing.
+  const dbAvailable =
+    (result as { dbAvailable?: boolean }).dbAvailable === false ? false : true;
+  return { events: result.events, dbAvailable };
 }
 
 export async function handleOpenLogFolder(api: DiagnosticsApi | undefined): Promise<void> {
@@ -57,6 +61,7 @@ export function DiagnosticsPanel() {
   const refreshDiagnosticEvents = useCodesignStore((s) => s.refreshDiagnosticEvents);
   const markDiagnosticsRead = useCodesignStore((s) => s.markDiagnosticsRead);
   const [events, setEvents] = useState<DiagnosticEventRow[]>([]);
+  const [dbAvailable, setDbAvailable] = useState(true);
   const [includeTransient, setIncludeTransient] = useState(false);
   const [exporting, setExporting] = useState(false);
   const [reportEventId, setReportEventId] = useState<number | null>(null);
@@ -71,8 +76,10 @@ export function DiagnosticsPanel() {
   // Filter-driven fetch goes through local state — no need to bloat the store.
   useEffect(() => {
     let cancelled = false;
-    void loadDiagnosticEvents(window.codesign?.diagnostics, includeTransient).then((rows) => {
-      if (!cancelled) setEvents(rows);
+    void loadDiagnosticEvents(window.codesign?.diagnostics, includeTransient).then((result) => {
+      if (cancelled) return;
+      setEvents(result.events);
+      setDbAvailable(result.dbAvailable);
     });
     return () => {
       cancelled = true;
@@ -140,7 +147,9 @@ export function DiagnosticsPanel() {
       {events.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 py-10 text-[var(--text-sm)] text-[var(--color-text-muted)]">
           <AlertCircle className="w-5 h-5" />
-          {t('settings.diagnostics.empty')}
+          {dbAvailable
+            ? t('settings.diagnostics.empty')
+            : t('settings.diagnostics.dbUnavailable')}
         </div>
       ) : (
         <table className="w-full text-[var(--text-sm)] border-t border-[var(--color-border-subtle)]">

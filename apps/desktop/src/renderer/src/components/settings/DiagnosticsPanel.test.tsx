@@ -29,14 +29,17 @@ function row(overrides: Record<string, unknown> = {}) {
 
 describe('loadDiagnosticEvents', () => {
   it('returns events when listEvents resolves with rows', async () => {
-    const listEvents = vi
-      .fn()
-      .mockResolvedValue({ schemaVersion: 1, events: [row({ id: 1 }), row({ id: 2 })] });
+    const listEvents = vi.fn().mockResolvedValue({
+      schemaVersion: 1,
+      events: [row({ id: 1 }), row({ id: 2 })],
+      dbAvailable: true,
+    });
     const api = { listEvents } as unknown as Parameters<typeof loadDiagnosticEvents>[0];
 
     const result = await loadDiagnosticEvents(api, false);
 
-    expect(result).toHaveLength(2);
+    expect(result.events).toHaveLength(2);
+    expect(result.dbAvailable).toBe(true);
     expect(listEvents).toHaveBeenCalledWith({
       schemaVersion: 1,
       limit: 100,
@@ -44,15 +47,32 @@ describe('loadDiagnosticEvents', () => {
     });
   });
 
-  it('returns empty array when api/listEvents is missing', async () => {
-    expect(await loadDiagnosticEvents(undefined, false)).toEqual([]);
+  it('returns empty list when api/listEvents is missing (optimistic dbAvailable=true)', async () => {
+    expect(await loadDiagnosticEvents(undefined, false)).toEqual({
+      events: [],
+      dbAvailable: true,
+    });
     expect(
       await loadDiagnosticEvents({} as Parameters<typeof loadDiagnosticEvents>[0], false),
-    ).toEqual([]);
+    ).toEqual({ events: [], dbAvailable: true });
+  });
+
+  it('surfaces dbAvailable=false when main reports the DB is down', async () => {
+    const listEvents = vi
+      .fn()
+      .mockResolvedValue({ schemaVersion: 1, events: [], dbAvailable: false });
+    const api = { listEvents } as unknown as Parameters<typeof loadDiagnosticEvents>[0];
+
+    const result = await loadDiagnosticEvents(api, false);
+
+    expect(result.events).toEqual([]);
+    expect(result.dbAvailable).toBe(false);
   });
 
   it('forwards includeTransient=true to listEvents when the filter is toggled on', async () => {
-    const listEvents = vi.fn().mockResolvedValue({ schemaVersion: 1, events: [] });
+    const listEvents = vi
+      .fn()
+      .mockResolvedValue({ schemaVersion: 1, events: [], dbAvailable: true });
     const api = { listEvents } as unknown as Parameters<typeof loadDiagnosticEvents>[0];
 
     await loadDiagnosticEvents(api, true);

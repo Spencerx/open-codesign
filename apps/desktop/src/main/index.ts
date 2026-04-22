@@ -27,6 +27,7 @@ import type { AgentStreamEvent } from '../preload/index';
 import { registerAppMenu } from './app-menu';
 import { registerChatMessagesIpc, registerChatMessagesUnavailableIpc } from './chat-messages-ipc';
 import { runCodexGenerate } from './codex-generate';
+import { generateCodexTitle } from './codex-title';
 import { registerCodexOAuthIpc } from './codex-oauth-ipc';
 import { registerCommentsIpc, registerCommentsUnavailableIpc } from './comments-ipc';
 import { registerConnectionIpc } from './connection-ipc';
@@ -846,6 +847,9 @@ function registerIpcHandlers(): void {
         error: (event, data) => logIpc.error(event, data),
       };
       try {
+        if (active.model.provider === 'chatgpt-codex') {
+          return await generateCodexTitle(prompt, active.model.modelId);
+        }
         return await generateTitle({
           prompt,
           model: active.model,

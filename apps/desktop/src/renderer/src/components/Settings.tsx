@@ -1,4 +1,4 @@
-import { setLocale as applyLocale, useT } from '@open-codesign/i18n';
+import { setLocale as applyLocale, getCurrentLocale, useT } from '@open-codesign/i18n';
 import type { OnboardingState, ReasoningLevel, WireApi } from '@open-codesign/shared';
 import {
   PROVIDER_SHORTLIST as SHORTLIST,
@@ -323,7 +323,7 @@ function ProviderCard({
         code: 'CONNECTION_TEST_FAILED',
         scope: 'settings',
         title: t('settings.providers.toast.connectionFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
         ...(err instanceof Error && err.stack !== undefined ? { stack: err.stack } : {}),
         context: { provider: row.provider },
       });
@@ -384,8 +384,8 @@ function ProviderCard({
         </div>
       </div>
 
-      {row.isActive && !hasError && config !== null && (
-        <ActiveModelSelector config={config} provider={row.provider} />
+      {!hasError && row.hasKey !== false && config !== null && (
+        <RowModelSelector config={config} row={row} onRowChanged={onRowChanged} />
       )}
       {!hasError && row.hasKey !== false && (
         <ReasoningDepthSelector
@@ -398,24 +398,34 @@ function ProviderCard({
   );
 }
 
-function ActiveModelSelector({
+function RowModelSelector({
   config,
-  provider,
+  row,
+  onRowChanged,
 }: {
   config: OnboardingState;
-  provider: string;
+  row: ProviderRow;
+  onRowChanged: (row: ProviderRow) => void;
 }) {
   const t = useT();
   const setConfig = useCodesignStore((s) => s.completeOnboarding);
   const reportableErrorToast = useCodesignStore((s) => s.reportableErrorToast);
 
-  const [primary, setPrimary] = useState(config.modelPrimary ?? '');
+  const provider = row.provider;
+  const isActive = row.isActive;
+
+  const initial = isActive
+    ? (config.modelPrimary ?? row.defaultModel ?? '')
+    : (row.defaultModel ?? '');
+  const [primary, setPrimary] = useState(initial);
   const [models, setModels] = useState<string[] | null>(null);
   const [loadingModels, setLoadingModels] = useState(false);
 
   useEffect(() => {
-    setPrimary(config.modelPrimary ?? '');
-  }, [config.modelPrimary]);
+    setPrimary(
+      isActive ? (config.modelPrimary ?? row.defaultModel ?? '') : (row.defaultModel ?? ''),
+    );
+  }, [isActive, config.modelPrimary, row.defaultModel]);
 
   // Fetch models immediately on mount
   useEffect(() => {
@@ -437,19 +447,26 @@ function ActiveModelSelector({
   async function save(next: string): Promise<boolean> {
     if (!window.codesign) return false;
     try {
-      const updated = await window.codesign.settings.setActiveProvider({
-        provider,
-        modelPrimary: next,
-      });
-      recordAction({ type: 'provider.switch', data: { provider, modelId: next } });
-      setConfig(updated);
+      if (isActive) {
+        const updated = await window.codesign.settings.setActiveProvider({
+          provider,
+          modelPrimary: next,
+        });
+        recordAction({ type: 'provider.switch', data: { provider, modelId: next } });
+        setConfig(updated);
+      } else {
+        // Inactive row: persist the per-provider default so that clicking
+        // "Set as current" later picks it up (see handleActivate → currentRow.defaultModel).
+        await window.codesign.config.updateProvider({ id: provider, defaultModel: next });
+        onRowChanged({ ...row, defaultModel: next });
+      }
       return true;
     } catch (err) {
       reportableErrorToast({
         code: 'PROVIDER_MODEL_SAVE_FAILED',
         scope: 'settings',
         title: t('settings.providers.toast.modelSaveFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
         ...(err instanceof Error && err.stack !== undefined ? { stack: err.stack } : {}),
         context: { provider },
       });
@@ -537,7 +554,7 @@ function ReasoningDepthSelector({
         code: 'PROVIDER_REASONING_SAVE_FAILED',
         scope: 'settings',
         title: t('settings.providers.toast.reasoningSaveFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
         ...(err instanceof Error && err.stack !== undefined ? { stack: err.stack } : {}),
         context: { provider },
       });
@@ -578,6 +595,24 @@ function ReasoningDepthSelector({
 const PARSE_REASON_NOT_JSON_OBJECT = '__parse_reason_not_json_object__';
 
 const DISMISSED_BANNER_PREFIX = 'open-codesign:settings:dismissed-import-banner:';
+
+/**
+ * Electron IPC wraps thrown errors as
+ * `Error invoking remote method '<channel>': <ErrorName>: <message>`.
+ * Strip the wrapper and, for bilingual messages formatted as `en / zh`,
+ * pick the side matching the active locale so toast descriptions read
+ * like natural sentences instead of framework tracebacks.
+ */
+function cleanIpcError(err: unknown): string {
+  if (!(err instanceof Error)) return String(err ?? '');
+  const raw = err.message;
+  const stripped = raw.replace(/^Error invoking remote method '[^']*':\s*[A-Za-z]*Error:\s*/, '');
+  const parts = stripped.split(' / ');
+  if (parts.length >= 2) {
+    return getCurrentLocale() === 'zh-CN' ? (parts[1] ?? stripped) : (parts[0] ?? stripped);
+  }
+  return stripped;
+}
 
 /**
  * Strip any user:pass@ credentials from a URL before putting it into
@@ -883,7 +918,7 @@ function ModelsTab() {
         pushToast({
           variant: 'error',
           title: t('settings.providers.toast.loadFailed'),
-          description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+          description: cleanIpcError(err) || t('settings.common.unknownError'),
         });
       })
       .finally(() => setLoading(false));
@@ -973,7 +1008,8 @@ function ModelsTab() {
         code: 'CODEX_IMPORT_FAILED',
         scope: 'onboarding',
         title: t('settings.providers.import.failed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
+        reportable: false,
         ...(err instanceof Error && err.stack !== undefined ? { stack: err.stack } : {}),
       });
     }
@@ -1002,7 +1038,8 @@ function ModelsTab() {
         code: 'GEMINI_IMPORT_FAILED',
         scope: 'onboarding',
         title: t('settings.providers.import.failed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
+        reportable: false,
         ...(err instanceof Error && err.stack !== undefined ? { stack: err.stack } : {}),
       });
     }
@@ -1033,7 +1070,8 @@ function ModelsTab() {
         code: 'OPENCODE_IMPORT_FAILED',
         scope: 'onboarding',
         title: t('settings.providers.import.failed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
+        reportable: false,
         ...(err instanceof Error && err.stack !== undefined ? { stack: err.stack } : {}),
       });
     }
@@ -1076,7 +1114,8 @@ function ModelsTab() {
         code: 'CLAUDECODE_IMPORT_FAILED',
         scope: 'onboarding',
         title: t('settings.providers.import.failed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
+        reportable: false,
         ...(err instanceof Error && err.stack !== undefined ? { stack: err.stack } : {}),
       });
     }
@@ -1146,7 +1185,7 @@ function ModelsTab() {
         code: 'PROVIDER_DELETE_FAILED',
         scope: 'settings',
         title: t('settings.providers.toast.deleteFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
         ...(err instanceof Error && err.stack !== undefined ? { stack: err.stack } : {}),
       });
     }
@@ -1188,7 +1227,7 @@ function ModelsTab() {
         code: 'PROVIDER_ACTIVATE_FAILED',
         scope: 'settings',
         title: t('settings.providers.toast.switchFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
         ...(err instanceof Error && err.stack !== undefined ? { stack: err.stack } : {}),
       });
     }
@@ -1560,7 +1599,7 @@ function AppearanceTab() {
         pushToast({
           variant: 'error',
           title: t('settings.appearance.languageLoadFailed'),
-          description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+          description: cleanIpcError(err) || t('settings.common.unknownError'),
         });
       });
   }, [pushToast, t]);
@@ -1581,7 +1620,7 @@ function AppearanceTab() {
       pushToast({
         variant: 'error',
         title: t('errors.localePersistFailed'),
-        description: err instanceof Error ? err.message : t('errors.unknown'),
+        description: cleanIpcError(err) || t('errors.unknown'),
       });
     }
   }
@@ -1737,7 +1776,7 @@ function StorageTab() {
         pushToast({
           variant: 'error',
           title: t('settings.storage.pathsLoadFailed'),
-          description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+          description: cleanIpcError(err) || t('settings.common.unknownError'),
         });
       });
   }, [pushToast, t]);
@@ -1749,7 +1788,7 @@ function StorageTab() {
       pushToast({
         variant: 'error',
         title: t('settings.storage.openFolderFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
       });
     }
   }
@@ -1765,7 +1804,7 @@ function StorageTab() {
       pushToast({
         variant: 'error',
         title: t('settings.storage.locationSaveFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
       });
     } finally {
       setChoosing(null);
@@ -1790,7 +1829,7 @@ function StorageTab() {
       pushToast({
         variant: 'error',
         title: t('settings.storage.openFolderFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
       });
     }
   }
@@ -1809,7 +1848,7 @@ function StorageTab() {
       pushToast({
         variant: 'error',
         title: t('settings.storage.diagnosticsExportFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
       });
     } finally {
       setExporting(false);
@@ -1944,7 +1983,7 @@ function AdvancedTab() {
         pushToast({
           variant: 'error',
           title: t('settings.advanced.prefsLoadFailed'),
-          description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+          description: cleanIpcError(err) || t('settings.common.unknownError'),
         });
       });
   }, [pushToast, t]);
@@ -1958,7 +1997,7 @@ function AdvancedTab() {
       pushToast({
         variant: 'error',
         title: t('settings.advanced.prefsSaveFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
       });
     }
   }
@@ -1971,7 +2010,7 @@ function AdvancedTab() {
       pushToast({
         variant: 'error',
         title: t('settings.advanced.devtoolsFailed'),
-        description: err instanceof Error ? err.message : t('settings.common.unknownError'),
+        description: cleanIpcError(err) || t('settings.common.unknownError'),
       });
     }
   }

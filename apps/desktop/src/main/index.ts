@@ -7,12 +7,14 @@ import {
   type CoreLogger,
   DESIGN_SKILLS,
   FRAME_TEMPLATES,
+  type GenerateImageAssetRequest,
+  type GenerateImageAssetResult,
   applyComment,
   generate,
   generateTitle,
   generateViaAgent,
 } from '@open-codesign/core';
-import { detectProviderFromKey } from '@open-codesign/providers';
+import { detectProviderFromKey, generateImage } from '@open-codesign/providers';
 import {
   ApplyCommentPayload,
   BRAND,
@@ -48,6 +50,11 @@ import {
   cancelGenerationRequest,
   extractGenerationTimeoutError,
 } from './generation-ipc';
+import {
+  registerImageGenerationSettingsIpc,
+  resolveImageGenerationConfig,
+  toGenerateImageOptions,
+} from './image-generation-settings';
 import { maybeAbortIfRunningFromDmg } from './install-check';
 import { registerLocaleIpc } from './locale-ipc';
 import { getLogPath, getLogger, initLogger } from './logger';
@@ -207,6 +214,49 @@ function resolveApiKeyForActive(providerId: string, allowKeyless: boolean): Prom
   });
 }
 
+function escapeRegExp(input: string): string {
+  return input.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function resolveLocalAssetRefs(source: string, files: Map<string, string>): string {
+  let resolved = source;
+  for (const [path, content] of files.entries()) {
+    if (!path.startsWith('assets/') || !content.startsWith('data:')) continue;
+    resolved = resolved.replace(new RegExp(escapeRegExp(path), 'g'), content);
+  }
+  return resolved;
+}
+
+function extensionFromMimeType(mimeType: string): string {
+  if (mimeType === 'image/jpeg') return 'jpg';
+  if (mimeType === 'image/webp') return 'webp';
+  return 'png';
+}
+
+function sanitizeAssetStem(input: string | undefined, fallback: string): string {
+  const raw = input?.trim() || fallback;
+  const stem = raw
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 48);
+  return stem.length > 0 ? stem : 'image-asset';
+}
+
+function allocateAssetPath(
+  files: Map<string, string>,
+  request: GenerateImageAssetRequest,
+  mimeType: string,
+): string {
+  const stem = sanitizeAssetStem(request.filenameHint, request.purpose);
+  const ext = extensionFromMimeType(mimeType);
+  let path = `assets/${stem}.${ext}`;
+  for (let i = 2; files.has(path); i++) {
+    path = `assets/${stem}-${i}.${ext}`;
+  }
+  return path;
+}
+
 function registerIpcHandlers(db: Database | null): void {
   const logIpc = getLogger('main:ipc');
 
@@ -324,6 +374,63 @@ function registerIpcHandlers(db: Database | null): void {
     if (previousHtml && previousHtml.trim().length > 0) {
       fsMap.set('index.html', previousHtml);
     }
+    const cfg = getCachedConfig();
+    const imageConfig = cfg ? resolveImageGenerationConfig(cfg) : null;
+    const imageLog = getLogger('image-generation');
+    const generateImageAsset = imageConfig
+      ? async (
+          request: GenerateImageAssetRequest,
+          signal?: AbortSignal,
+        ): Promise<GenerateImageAssetResult> => {
+          const started = Date.now();
+          const options = toGenerateImageOptions(
+            imageConfig,
+            request.prompt,
+            signal,
+            request.aspectRatio,
+          );
+          imageLog.info('provider.request', {
+            generationId: id,
+            provider: options.provider,
+            model: options.model,
+            size: options.size,
+            aspectRatio: request.aspectRatio ?? 'default',
+            purpose: request.purpose,
+            quality: options.quality,
+            outputFormat: options.outputFormat,
+            promptChars: options.prompt.length,
+          });
+          try {
+            const image = await generateImage(options);
+            const path = allocateAssetPath(fsMap, request, image.mimeType);
+            imageLog.info('provider.ok', {
+              generationId: id,
+              provider: image.provider,
+              model: image.model,
+              path,
+              ms: Date.now() - started,
+              revised: image.revisedPrompt !== undefined,
+            });
+            return {
+              path,
+              dataUrl: image.dataUrl,
+              mimeType: image.mimeType,
+              model: image.model,
+              provider: image.provider,
+              ...(image.revisedPrompt !== undefined ? { revisedPrompt: image.revisedPrompt } : {}),
+            };
+          } catch (err) {
+            imageLog.warn('provider.fail', {
+              generationId: id,
+              provider: options.provider,
+              model: options.model,
+              ms: Date.now() - started,
+              message: err instanceof Error ? err.message : String(err),
+            });
+            throw err;
+          }
+        }
+      : undefined;
     // Seed the virtual fs with optional device-frame starter templates. The
     // agent decides whether to view/use them based on the brief — there is
     // no keyword detection here. See packages/core/src/frames/README.md.
@@ -345,6 +452,7 @@ function registerIpcHandlers(db: Database | null): void {
       create(path: string, content: string) {
         fsMap.set(path, content);
         emitFsUpdated(path, content);
+        emitIndexIfAssetChanged(path);
         return { path };
       },
       strReplace(path: string, oldStr: string, newStr: string) {
@@ -358,6 +466,7 @@ function registerIpcHandlers(db: Database | null): void {
         const next = current.slice(0, idx) + newStr + current.slice(idx + oldStr.length);
         fsMap.set(path, next);
         emitFsUpdated(path, next);
+        emitIndexIfAssetChanged(path);
         return { path };
       },
       insert(path: string, line: number, text: string) {
@@ -368,6 +477,7 @@ function registerIpcHandlers(db: Database | null): void {
         const next = lines.join('\n');
         fsMap.set(path, next);
         emitFsUpdated(path, next);
+        emitIndexIfAssetChanged(path);
         return { path };
       },
       listDir(dir: string) {
@@ -390,7 +500,14 @@ function registerIpcHandlers(db: Database | null): void {
     // (no preview pane to update).
     function emitFsUpdated(path: string, content: string): void {
       if (designId === null) return;
-      sendEvent({ ...baseCtx, type: 'fs_updated', path, content });
+      const resolved = path === 'index.html' ? resolveLocalAssetRefs(content, fsMap) : content;
+      sendEvent({ ...baseCtx, type: 'fs_updated', path, content: resolved });
+    }
+
+    function emitIndexIfAssetChanged(path: string): void {
+      if (!path.startsWith('assets/')) return;
+      const index = fsMap.get('index.html');
+      if (index !== undefined) emitFsUpdated('index.html', index);
     }
 
     // Per-turn counters so we can emit a single summary line at turn_end
@@ -401,6 +518,7 @@ function registerIpcHandlers(db: Database | null): void {
     return generateViaAgent(input, {
       fs,
       runtimeVerify,
+      ...(generateImageAsset !== undefined ? { generateImageAsset } : {}),
       onEvent: (event: AgentEvent) => {
         // High-signal only. Skip per-token deltas and inner message_*
         // markers. Emit a concise summary at turn_end.
@@ -492,7 +610,13 @@ function registerIpcHandlers(db: Database | null): void {
           return;
         }
       },
-    });
+    }).then((result) => ({
+      ...result,
+      artifacts: result.artifacts.map((artifact) => ({
+        ...artifact,
+        content: resolveLocalAssetRefs(artifact.content, fsMap),
+      })),
+    }));
   };
 
   /** In-flight requests: generationId → AbortController */
@@ -1170,6 +1294,7 @@ void app.whenReady().then(async () => {
     registerOnboardingIpc();
     registerCodexOAuthIpc();
     registerPreferencesIpc();
+    registerImageGenerationSettingsIpc();
     registerExporterIpc(() => mainWindow);
     registerDiagnosticsIpc(diagnosticsDb);
     setupAutoUpdater();

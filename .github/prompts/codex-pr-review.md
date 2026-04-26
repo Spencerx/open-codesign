@@ -56,6 +56,15 @@ is_follow_up_review="${IS_FOLLOW_UP_REVIEW:-false}"
 gh pr view "$pr_number" -R "$repo" --json number,title,body,labels,author,additions,deletions,changedFiles,files,headRefOid
 gh pr diff "$pr_number" -R "$repo"
 
+# If the PR claims to close or implement an issue, inspect the linked issue too.
+# Prefer GitHub's structured closing references, then scan the PR title/body for
+# explicit issue numbers when the closing reference list is empty.
+closing_issue_numbers="$(gh pr view "$pr_number" -R "$repo" --json closingIssuesReferences \
+  -q '.closingIssuesReferences[].number' 2>/dev/null || true)"
+for issue_number in $closing_issue_numbers; do
+  gh issue view "$issue_number" -R "$repo" --json number,title,state,body,comments,labels
+done
+
 if [ "$is_follow_up_review" = "true" ] && [ -n "$latest_bot_review_id" ]; then
   gh api "repos/$repo/pulls/$pr_number/reviews/$latest_bot_review_id"
   gh api "repos/$repo/pulls/$pr_number/reviews/$latest_bot_review_id/comments"
@@ -75,7 +84,35 @@ fi
 5. **Check tests**: note missing or inadequate Vitest/Playwright coverage.
 6. **Constraint checks**: silent fallbacks, hardcoded UI values, direct SDK imports, license of new deps, install-size impact.
 7. **Freshness checks**: for dependency, runtime, or API-version claims, verify against the repository files first. If the repository files are insufficient and network is available, use public authoritative sources such as npm package metadata, GitHub releases, or official docs. Never report a version-related issue from model memory alone.
-8. **Respond** with an evidence-based review comment (no code changes).
+8. **Linked issue validation**: when the PR title/body says it closes, fixes, resolves, implements, or completes an issue, fetch that issue body and recent public comments. Compare the issue's acceptance criteria, claimed scope, and follow-up comments against the actual diff and tests.
+9. **Respond** with an evidence-based review comment (no code changes).
+
+## Linked Issue Validation
+
+When a PR references an issue, distinguish casual references from closure claims:
+
+- `Refs #123`, `Related #123`, or "part of #123" may be partial work.
+- `Closes #123`, `Fixes #123`, `Resolves #123`, "implements #123", or "covers the acceptance criteria" claims completion and must be validated.
+
+For every completion claim:
+
+- Fetch the linked issue body and recent public comments.
+- Extract the acceptance criteria, stated scope, and any maintainer clarification.
+- Compare those requirements against the actual diff, changed files, and tests.
+- Check whether all relevant runtime paths are covered, not just one path. For provider/API work, this usually means connection test, model listing, runtime generation, title generation, agent runtime, and diagnostics where applicable.
+- If the PR only satisfies part of the issue, recommend changing the link to `Refs #issue` and keeping or opening follow-up issues.
+- If the PR body/title claims implementation but the diff is unrelated, lint-only, docs-only, or does not touch the expected code paths, report a **Major** finding.
+- If an issue is broad or epic-like, do not accept a single PR as closing it unless the issue explicitly defines that PR-sized slice as complete or all child acceptance criteria are demonstrably satisfied.
+
+Example finding:
+
+````md
+- [Major] PR closes #207 without implementing its acceptance criteria — the linked issue asks for centralized wire/role/reasoning policy, but this diff only changes lint/formatting and does not modify provider policy code or add policy tests. Use `Refs #207` or link the actual implementation PR instead.
+  Suggested fix:
+  ```md
+  Refs #207
+  ```
+````
 
 ## Response Guidelines
 
@@ -85,6 +122,7 @@ fi
 - **No private citations**: never cite `docs/**`, `.claude/**`, `.Codex/**`, local absolute paths, workflow runner temp paths, or any file absent from the public checkout.
 - **No speculation**: if uncertain, say so; if not found, say "Not found in the public repo".
 - **No stale version claims**: when judging "latest", "unsupported", "deprecated", or "current stable", include the checked source in the reasoning. If you cannot verify it during the run, do not file a finding.
+- **Linked issue claims**: if a PR claims to close/implement an issue, verify the issue acceptance criteria against the diff and tests before accepting the claim.
 - **Missing info**: ask only when required; max 4 questions.
 - **Language**: match the PR's language (Chinese or English); if mixed, use the dominant language.
 - **Signature**: end with `*open-codesign Bot*`.

@@ -128,7 +128,7 @@ Treat severity as a merge decision aid, not a list of every possible improvement
 - **Minor**: localized bug, important but non-blocking test gap, misleading diagnostic, or follow-up needed for a secondary path.
 - **Nit**: wording, small maintainability, or style issues with no behavioral risk.
 
-When a concern only appears under a self-contradictory configuration, a deliberately unsupported path, or a scope that belongs to a follow-up issue, do not label it Major. Put it in Summary as residual risk or suggest a follow-up issue instead. Do not report DCO / `Signed-off-by` findings unless a public workflow, branch protection rule, or live required check in this repository currently enforces it.
+When a concern only appears under a self-contradictory configuration, a deliberately unsupported path, or a scope that belongs to a follow-up issue, do not label it Major. Put it in Summary as residual risk or suggest a follow-up issue instead. Do not report commit-trailer compliance findings unless a public workflow, branch protection rule, or live required check in this repository currently enforces them.
 
 ## Response Guidelines
 

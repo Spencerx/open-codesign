@@ -1,5 +1,6 @@
 import {
-  callDeepSeekJson,
+  assertNonEmptyParsedString,
+  callDeepSeekJsonWithRetries,
   ensureBotSignature,
   loadEventPayload,
   loadRepoDocs,
@@ -73,7 +74,7 @@ async function main() {
     searchSnippets.length > 0 ? searchSnippets.join('\n') : 'No relevant repo snippets found.',
   ].join('\n');
 
-  const { parsed, usage } = await callDeepSeekJson({
+  const { parsed, usage } = await callDeepSeekJsonWithRetries({
     apiKey,
     baseUrl,
     model,
@@ -82,7 +83,7 @@ async function main() {
     userPrompt,
   });
 
-  const body = ensureBotSignature(String(parsed.body || ''));
+  const body = ensureBotSignature(assertNonEmptyParsedString(parsed, 'body'));
   const commentPayload = writeTempJson('deepseek-issue-comment', { body });
   runGh([
     'api',
